@@ -1,22 +1,22 @@
 ---
 
-- name: Check opendkim and restart
-  command: opendkim -n
-  notify: [ 'Restart opendkim' ]
+- name: Check opendmarc and restart
+  command: opendmarc -n
+  notify: [ 'Restart opendmarc' ]
 
-- name: Check opendkim and reload
-  command: opendkim -n
-  notify: [ 'Reload opendkim' ]
-  when: ansible_local|d() and ansible_local.opendkim|d() and
-        ansible_local.opendkim.installed is defined and
-        ansible_local.opendkim.installed | bool
+- name: Check opendmarc and reload
+  command: opendmarc -n
+  notify: [ 'Reload opendmarc' ]
+  when: ansible_local|d() and ansible_local.opendmarc|d() and
+        ansible_local.opendmarc.installed is defined and
+        ansible_local.opendmarc.installed | bool
 
-- name: Restart opendkim
+- name: Restart opendmarc
   service:
-    name: 'opendkim'
+    name: 'opendmarc'
     state: 'restarted'
 
-- name: Reload opendkim
+- name: Reload opendmarc
   service:
-    name: 'opendkim'
+    name: 'opendmarc'
     state: 'reloaded'

@@ -1,19 +1,19 @@
 ---
 
-- name: Install OpenDKIM support
+- name: Install opendmarc support
   package:
     name: '{{ item }}'
     state: 'present'
   with_flattened:
-    - '{{ opendkim__base_packages }}'
-    - '{{ opendkim__packages }}'
-  notify: [ 'Check opendkim and restart' ]
+    - '{{ opendmarc__base_packages }}'
+    - '{{ opendmarc__packages }}'
+  notify: [ 'Check opendmarc and restart' ]
   when: ansible_pkg_mgr == 'apt'
 
-- name: Divert original OpenDKIM configuration
-  command: dpkg-divert --quiet --local --divert /etc/opendkim.conf.dpkg-divert --rename /etc/opendkim.conf
+- name: Divert original opendmarc configuration
+  command: dpkg-divert --quiet --local --divert /etc/opendmarc.conf.dpkg-divert --rename /etc/opendmarc.conf
   args:
-    creates: '/etc/opendkim.conf.dpkg-divert'
+    creates: '/etc/opendmarc.conf.dpkg-divert'
   when: ansible_pkg_mgr == 'apt'
 
 - name: Make sure Ansible local facts directory exists
@@ -24,100 +24,35 @@
     group: 'root'
     mode: '0755'
 
-- name: Configure OpenDKIM local facts
+- name: Configure opendmarc local facts
   template:
-    src: 'etc/ansible/facts.d/opendkim.fact.j2'
-    dest: '/etc/ansible/facts.d/opendkim.fact'
+    src: 'etc/ansible/facts.d/opendmarc.fact.j2'
+    dest: '/etc/ansible/facts.d/opendmarc.fact'
     owner: 'root'
     group: 'root'
     mode: '0755'
-  register: opendkim__register_facts
+  register: opendmarc__register_facts
 
 - name: Re-read local facts if they have been modified
   action: setup
-  when: opendkim__register_facts|changed
+  when: opendmarc__register_facts|changed
 
-- name: Generate OpenDKIM configuration
+- name: Generate opendmarc configuration
   template:
-    src: 'etc/opendkim.conf.j2'
-    dest: '/etc/opendkim.conf'
+    src: 'etc/opendmarc.conf.j2'
+    dest: '/etc/opendmarc.conf'
     owner: 'root'
-    group: '{{ opendkim__group }}'
+    group: '{{ opendmarc__group }}'
     mode: '0640'
-  notify: [ 'Check opendkim and reload' ]
+  notify: [ 'Check opendmarc and reload' ]
 
-- name: Ensure that DomainKey directory exists
+
+- name: Create opendmarc socket directory in Postfix chroot
   file:
-    path: '{{ opendkim__dkimkeys_path }}'
+    path: '/var/spool/postfix/opendmarc'
     state: 'directory'
-    owner: '{{ opendkim__user }}'
-    group: '{{ opendkim__group }}'
-    mode: '0700'
-
-- name: Install helper scripts on Ansible Controller
-  copy:
-    src: 'secret/opendkim/lib/'
-    dest: '{{ secret + "/opendkim/lib/" }}'
-    mode: '0755'
-  become: False
-  delegate_to: 'localhost'
-  run_once: True
-
-- name: Generate DomainKeys on Ansible Controller
-  openssl_privatekey:
-    size:  '{{ item.size  | d(opendkim__default_key_size) }}'
-    type:  '{{ (item.type | d("rsa")) | upper }}'
-    path:  '{{ secret + "/opendkim/domainkeys/"
-               + (item.domain | d(opendkim__domain)) + "_"
-               + (item.selector | d(item.name | d(item))) + ".pem" }}'
-  with_flattened:
-    - '{{ opendkim__combined_keys }}'
-  become: False
-  delegate_to: 'localhost'
-  no_log: '{{ secret__no_log | bool }}'
-
-- name: Remove DomainKeys from hosts when requested
-  file:
-    path: '{{ opendkim__dkimkeys_path + "/"
-              + (item.domain | d(opendkim__domain)) + "_"
-              + (item.selector | d(item.name | d(item))) + ".pem" }}'
-    state: 'absent'
-  with_flattened:
-    - '{{ opendkim__combined_keys }}'
-  when: item.state|d('present') == 'absent'
-
-- name: Download DomainKeys from Ansible Controller
-  copy:
-    src:  '{{ secret + "/opendkim/domainkeys/"
-              + (item.domain | d(opendkim__domain)) + "_"
-              + (item.selector | d(item.name | d(item))) + ".pem" }}'
-    dest: '{{ opendkim__dkimkeys_path + "/"
-              + (item.domain | d(opendkim__domain)) + "_"
-              + (item.selector | d(item.name | d(item))) + ".pem" }}'
-    owner: 'root'
-    group: '{{ opendkim__group }}'
-    mode: '0640'
-  with_flattened:
-    - '{{ opendkim__combined_keys }}'
-  when: item.state|d('present') != 'absent'
-  no_log: '{{ secret__no_log | bool }}'
-
-- name: Generate key configuration files
-  template:
-    src: 'etc/dkimkeys/{{ item }}.j2'
-    dest: '{{ opendkim__dkimkeys_path + "/" + item }}'
-    owner: 'root'
-    group: '{{ opendkim__group }}'
-    mode: '0640'
-  notify: [ 'Check opendkim and reload' ]
-  with_items: [ 'KeyTable', 'SigningTable', 'TrustedHosts' ]
-
-- name: Create OpenDKIM socket directory in Postfix chroot
-  file:
-    path: '/var/spool/postfix/opendkim'
-    state: 'directory'
-    owner: '{{ opendkim__user }}'
-    group: '{{ opendkim__postfix_group }}'
+    owner: '{{ opendmarc__user }}'
+    group: '{{ opendmarc__postfix_group }}'
     mode: '2750'
-  when: opendkim__postfix_integration|bool
-  notify: [ 'Check opendkim and restart' ]
+  when: opendmarc__postfix_integration|bool
+  notify: [ 'Check opendmarc and restart' ]
